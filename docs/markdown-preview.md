@@ -1,5 +1,10 @@
 # Markdown preview (issue #10)
 
+**Status: partial prototype, not acceptance-complete.** The owner requires an
+Orca-inspired reading experience with actual inline images. Stock Lite XL still
+shows placeholders. See the [design review, real-window screenshots and image
+backend investigation](markdown-design-review.md) before treating #10 as done.
+
 Use **Ctrl+Shift+M** or **Git Panel: Preview Markdown** in the command palette:
 
 - From an open `.md`, `.markdown`, `.mdown`, or `.mkd` source (case insensitive).
@@ -70,7 +75,9 @@ Inputs are limited to 512 KiB, 10,000 lines and 16 KiB per line; binary/NUL inpu
 refused. Failed refresh retains the previous snapshot and reports the failure.
 Normal native tab close/split/scroll commands apply; there is no preview text
 selection/search or session restoration yet. Only the existing macOS native-core
-headless environment is tested; no new platform/GUI support is claimed.
+headless environment is tested. Real macOS rendering was also inspected through
+an isolated native QA driver, but OS-level GUI input and real image rendering
+remain unverified; see the design review for the exact evidence.
 
 ## Existing tools researched
 
