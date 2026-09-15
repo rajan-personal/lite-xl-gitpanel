@@ -80,10 +80,13 @@ def main():
     # worktree whose bytes the replacement will later write. Keep this policy
     # aligned with remove.py and staging.py.
     assert all(p and p not in (".", "..") and p.casefold() != ".git" for p in parts), "Unsafe file path"
-    allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_AUTHOR_NAME",
+    allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_NAME",
                "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
     assert not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment unsupported"
     env = os.environ.copy()
+    # VS Code exports GIT_ASKPASS for authentication. Local discard never
+    # contacts a remote, so do not let that UI hook affect the helper.
+    env.pop("GIT_ASKPASS", None)
     env.update(GIT_TERMINAL_PROMPT="0", LC_ALL="C")
 
     deadline = time.monotonic() + 60  # Leave cleanup time before the editor's 120s limit.
