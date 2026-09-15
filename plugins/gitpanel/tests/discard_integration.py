@@ -225,6 +225,11 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-discard-") as tmp:
     redirected = subprocess.run([sys.executable, "-I", str(HERE.parent / "discard.py"), "snapshot", str(root), path], capture_output=True, env=env)
     check(redirected.returncode != 0 and b"Redirected Git environment" in redirected.stderr, "discard refuses redirected Git environment")
     env.pop("GIT_DIR")
+    setup()
+    env["GIT_ASKPASS"] = "/Applications/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
+    r = discard(1)
+    check(not r["error"] and r["reloads"] == 1, "discard ignores VS Code's local GIT_ASKPASS hook")
+    env.pop("GIT_ASKPASS")
     path = "nested/file.txt"
     (root / "nested").mkdir()
     file = root / path
