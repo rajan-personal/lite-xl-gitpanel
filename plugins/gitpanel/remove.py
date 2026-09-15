@@ -120,8 +120,9 @@ class Repository:
         require(all(p and p not in (".", "..") and p.casefold() != ".git" and "\x00" not in p for p in parts), "Unsafe relative path")
         allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_NAME",
                    "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
-        require(not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment unsupported")
-        self.env = os.environ.copy()
+        # Ignore inherited Git redirecting overrides. Explicit repository and
+        # descriptor checks below bind removal to this worktree's .git state.
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") or k in allowed}
         # VS Code exports GIT_ASKPASS for authentication. Local removal never
         # contacts a remote, so do not let that UI hook affect the helper.
         self.env.pop("GIT_ASKPASS", None)

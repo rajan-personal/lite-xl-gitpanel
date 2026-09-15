@@ -28,11 +28,11 @@ def main():
     assert all(p and p not in (".", "..") and p.lower() != ".git" for p in parts) and "\0" not in path, "Unsafe path"
     root = Path(root_arg)
     assert root.is_absolute() and str(root.resolve()) == str(root), "Noncanonical root is unsupported"
-    # Refuse linked worktrees and redirected index/object environments in this slice.
+    # Ignore inherited Git redirecting overrides. The explicit repository
+    # locations below bind staging to this worktree and its index.
     allowed = ("GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS",
                "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL")
-    assert not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment is unsupported"
-    env = os.environ.copy()
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") or k in allowed}
     # VS Code exports GIT_ASKPASS for authentication. Local staging never
     # contacts a remote, so do not let that UI hook affect the helper.
     env.pop("GIT_ASKPASS", None)

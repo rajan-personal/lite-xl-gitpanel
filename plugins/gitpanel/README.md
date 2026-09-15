@@ -110,8 +110,9 @@ replication. External renames/deletion can stale logged paths. See the exact
   submodules, conflicts, binaries/non-UTF-8, special modes/flags, ACLs and
   unsupported xattrs refuse. Git conversion attributes/filters and `core.autocrlf`
   refuse; raw CRLF and missing-final-newline text without conversion are supported.
-  Ownership/ordinary permissions are preserved; on macOS only
-  `com.apple.provenance` is allowed among xattrs, with verified exact preservation.
+  Ownership/ordinary permissions are preserved; inherited Git redirect
+  overrides are ignored; on macOS only `com.apple.provenance` is allowed among
+  xattrs, with verified exact preservation.
 - Discard's isolated Python helper revalidates, uses no-follow directory
   descriptors and a bounded same-directory temporary file, then atomically
   replaces one literal leaf. It never writes the index. Output/preflight is
@@ -128,9 +129,11 @@ replication. External renames/deletion can stale logged paths. See the exact
   soft wrapping, source editing, word diff, multi-cursor, source search or merge
   editor is provided. Comparisons are snapshots, not continuously live views.
 - Remove accepts only currently untracked, nonignored, single-link regular files
-  up to 2 MiB; symlinks, directories, nested/linked repositories, redirected Git
-  environments, sparse/split indexes and unsafe metadata/layouts refuse. No
-  overwriting-rename or copy/delete fallback exists. Cooperative `index.lock`
+  up to 2 MiB; symlinks, directories, nested/linked repositories, sparse/split
+  indexes and unsafe metadata/layouts refuse. Inherited Git environment
+  overrides are ignored so they cannot redirect the operation away from the
+  selected worktree. No overwriting-rename or copy/delete fallback exists.
+  Cooperative `index.lock`
   protects Git writers, not arbitrary filesystem writers. Recovery errors can
   occur after the move; inspect rather than assume rollback.
 

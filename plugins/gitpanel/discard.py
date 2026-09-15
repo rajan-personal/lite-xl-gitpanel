@@ -75,15 +75,14 @@ def main():
     assert action in ("snapshot", "replace"), "Invalid discard action"
     root = os.path.realpath(root)
     parts = path.split("/")
-    # The helper receives an environment inherited from the editor. Git's
-    # GIT_* overrides must not redirect read-side preflight away from the
-    # worktree whose bytes the replacement will later write. Keep this policy
-    # aligned with remove.py and staging.py.
+    # The helper receives an environment inherited from the editor. Ignore
+    # Git's redirecting overrides instead of letting them select another
+    # worktree, index or object database. The explicit -C root and the later
+    # repository checks bind preflight to the bytes the replacement writes.
     assert all(p and p not in (".", "..") and p.casefold() != ".git" for p in parts), "Unsafe file path"
     allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_NAME",
                "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
-    assert not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment unsupported"
-    env = os.environ.copy()
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") or k in allowed}
     # VS Code exports GIT_ASKPASS for authentication. Local discard never
     # contacts a remote, so do not let that UI hook affect the helper.
     env.pop("GIT_ASKPASS", None)

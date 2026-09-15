@@ -221,9 +221,9 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-discard-") as tmp:
     before = file.read_bytes()
     refused = subprocess.run([sys.executable, "-O", str(HERE.parent / "discard.py"), "replace", str(root), path], input=b"", capture_output=True, env=env)
     check(refused.returncode != 0 and b"Optimized Python" in refused.stderr and file.read_bytes() == before, "direct optimized helper invocation safely refused")
-    env["GIT_DIR"] = str(root / ".git")
+    env["GIT_DIR"] = str(Path(tmp) / "redirected.git")
     redirected = subprocess.run([sys.executable, "-I", str(HERE.parent / "discard.py"), "snapshot", str(root), path], capture_output=True, env=env)
-    check(redirected.returncode != 0 and b"Redirected Git environment" in redirected.stderr, "discard refuses redirected Git environment")
+    check(redirected.returncode == 0 and b"Redirected Git environment" not in redirected.stderr, "discard ignores redirected Git environment")
     env.pop("GIT_DIR")
     setup()
     env["GIT_ASKPASS"] = "/Applications/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"

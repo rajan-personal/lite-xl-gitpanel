@@ -78,9 +78,11 @@ permission bits or file flags, and at most 2 MiB are eligible. The actual inode
 move preserves its filesystem metadata; the extra snapshot promises bytes/mode,
 not complete ACL/xattr replication. Symlinks, hardlinks, directories, special
 files, traversal/protected `.git` components (case-insensitive), nested or linked
-repositories, symlink ancestors, split/sparse indexes/worktrees, cross-device
-moves, and redirected Git environments are refused. Raw index/Git output is also
-bounded to 2 MiB, Git subprocesses to 20 seconds, with a 60-second Git deadline.
+repositories, symlink ancestors, split/sparse indexes/worktrees and cross-device
+moves are refused. Inherited Git environment overrides are ignored; explicit
+repository and descriptor checks keep reads and moves bound to the selected
+worktree. Raw index/Git output is also bounded to 2 MiB, Git subprocesses to 20
+seconds, with a 60-second Git deadline.
 No unsafe copy/delete or overwriting-rename fallback exists.
 
 All Git reads use `--literal-pathspecs --no-optional-locks`, disable automatic
