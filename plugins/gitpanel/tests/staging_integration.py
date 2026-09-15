@@ -179,6 +179,9 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-staging-") as tmp:
     setup();git("config","core.sparseCheckout","true");before=(root/".git/index").read_bytes();r=stage()
     check(r["error"] and (root/".git/index").read_bytes()==before, "sparse configuration fails closed")
     git("config","core.sparseCheckout","false")
+    git("config","index.sparse","true");before=(root/".git/index").read_bytes();r=stage()
+    check(r["error"] and (root/".git/index").read_bytes()==before, "sparse index configuration fails closed")
+    git("config","index.sparse","false")
     setup();git("mv","--",path,"renamed.txt")
     saved_path,saved_file=path,file;path,file="renamed.txt",root/"renamed.txt"
     before=(root/".git/index").read_bytes();r=stage("staged",x="A",y="M")

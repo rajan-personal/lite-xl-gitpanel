@@ -46,7 +46,7 @@ no network or user-project mutation is required.
 
 The byte-identical executable baseline was previously checked with Python 3.14.6
 and 3.9.6. The public-layout validation passed on Python 3.14.6: **18 suites,
-1655 distinct checks**, including 23 removal-helper unittest cases and nine native
+1659 distinct checks**, including 23 removal-helper unittest cases and nine native
 filesystem probes. The 225-check native bootstrap runs six times and is counted
 once, not repeatedly. One initial validation failed because its isolated empty Git
 template lacked the hooks directory expected by a fixture; a corrected run with

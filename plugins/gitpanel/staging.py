@@ -100,7 +100,8 @@ def main():
     assert git("rev-parse", "--show-toplevel").rstrip(b"\n") == os.fsencode(root), "Git root changed"
     assert git("rev-parse", "--absolute-git-dir").rstrip(b"\n") == os.fsencode(root / ".git"), "Linked/redirected Git directory unsupported"
     assert not git("rev-parse", "--shared-index-path").strip(), "Split index unsupported"
-    assert git("config", "--default", "false", "--get", "core.sparseCheckout").strip() == b"false", "Sparse index/worktree unsupported"
+    for key in ("core.sparseCheckout", "index.sparse"):
+        assert git("config", "--bool", "--default", "false", "--get", key).strip() == b"false", "Sparse index/worktree unsupported"
 
     def snapshot():
         assert (ancestors(index_path), ancestors(tree_path)) == initial_dirs, "Root/directory identity changed"

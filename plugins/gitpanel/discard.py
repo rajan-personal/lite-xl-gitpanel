@@ -75,14 +75,23 @@ def main():
     assert action in ("snapshot", "replace"), "Invalid discard action"
     root = os.path.realpath(root)
     parts = path.split("/")
-    assert all(p and p not in (".", "..", ".git") for p in parts), "Unsafe file path"
+    # The helper receives an environment inherited from the editor. Git's
+    # GIT_* overrides must not redirect read-side preflight away from the
+    # worktree whose bytes the replacement will later write. Keep this policy
+    # aligned with remove.py and staging.py.
+    assert all(p and p not in (".", "..") and p.casefold() != ".git" for p in parts), "Unsafe file path"
+    allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_AUTHOR_NAME",
+               "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
+    assert not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment unsupported"
     env = os.environ.copy()
     env.update(GIT_TERMINAL_PROMPT="0", LC_ALL="C")
 
     deadline = time.monotonic() + 60  # Leave cleanup time before the editor's 120s limit.
 
     def git(*args):
-        p = subprocess.Popen(["git", "--no-pager", "--literal-pathspecs", "--no-optional-locks", "-C", root, *args],
+        p = subprocess.Popen(["git", "--no-pager", "--literal-pathspecs", "--no-optional-locks",
+                              "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull,
+                              "-C", root, *args],
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         output, errors, size = [], [], 0
         stop = min(deadline, time.monotonic() + 20)
@@ -152,15 +161,18 @@ def main():
             metadata, indexed_path = records[0].split(b"\t", 1)
             mode, oid, stage = metadata.split()
             assert indexed_path == os.fsencode(path) and stage == b"0" and mode in (b"100644", b"100755"), "Symlink, conflict, submodule or unsupported index mode"
-            status = git("status", "--porcelain=v1", "-z", "--untracked-files=no", "--", path)
-            assert status and status[1:2] in (b"M", b"D"), "No supported unstaged changes remain; refresh the Git view"
-            assert status[0:1] not in (b"R", b"C", b"U"), "Rename or conflict is not supported"
+            # Check policy before status. These reads must fail closed without
+            # allowing an unsupported filter/configuration to participate in
+            # worktree inspection.
             attrs = git("check-attr", "-z", "filter", "working-tree-encoding", "ident", "text", "eol", "diff", "--", path)
             values = attrs.split(b"\0")
             assert all(v in (b"unspecified", b"unset") for v in values[2:-1:3]), "Git attributes/filters are not supported for discard; use Git externally"
             # --get-regexp returns 1 for unset keys; --get with --default does not.
             autocrlf = git("config", "--default", "false", "--get", "core.autocrlf").strip()
             assert autocrlf == b"false", "core.autocrlf conversion is not supported for discard; use Git externally"
+            status = git("status", "--porcelain=v1", "-z", "--untracked-files=no", "--", path)
+            assert status and status[1:2] in (b"M", b"D"), "No supported unstaged changes remain; refresh the Git view"
+            assert status[0:1] not in (b"R", b"C", b"U"), "Rename or conflict is not supported"
             original = git("cat-file", "blob", os.fsdecode(oid))
             try:
                 info = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
@@ -170,7 +182,9 @@ def main():
                 assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "Symlink, hardlink or nonregular file: discard refused"
                 assert not info.st_mode & 0o7000, "Special file permissions: discard refused"
                 assert bool(info.st_mode & 0o111) == (mode == b"100755"), "Unstaged permission changes: discard refused"
-                fd = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent)
+                # O_NONBLOCK keeps a concurrent FIFO substitution from
+                # suspending the editor's worker while the preflight opens it.
+                fd = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
                 try:
                     assert identity(os.fstat(fd)) == identity(info), "File changed during preflight"
                     provenance = plain_metadata(fd)

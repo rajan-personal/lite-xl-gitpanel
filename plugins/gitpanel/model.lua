@@ -119,6 +119,10 @@ function M:refresh(explicit)
         self.refresh_error = nil
         if explicit then self.error = nil end
       else
+        -- A failed status read must fail closed. Keeping the previous status
+        -- would leave stale rows and commit/stage commands enabled while the
+        -- banner reports that the repository could not be read.
+        self.status = nil
         self.refresh_error = status_error
       end
     end
@@ -236,6 +240,17 @@ function M:load_comparison(entry, group, callback, context, root, browse, refres
         and (not refresh or refresh())
     end
     local args = git.diff_args(entry, group, true)
+    if group == "untracked" then
+      -- Reject special paths before Git's --no-index reader: Git itself can
+      -- block while opening a FIFO. The optional symlink flag is available on
+      -- some Lite XL platforms; the patch-mode check below covers the rest.
+      local system_ok, system = pcall(require, "system")
+      if system_ok and system.get_file_info then
+        local info, message = system.get_file_info(root .. "/" .. entry.path)
+        assert(info and info.type == "file" and not info.symlink,
+          message or "Untracked source is not a regular file; use Git externally.")
+      end
+    end
     -- Git diff's automatic stat refresh can write index bytes even with
     -- --no-optional-locks after a file becomes clean. All comparison reads,
     -- including a newer browse queued around discard, must remain read-only.
@@ -269,6 +284,12 @@ function M:load_comparison(entry, group, callback, context, root, browse, refres
       else
         if group ~= "untracked" then original = run({ "show", ":" .. ((entry.y == "R" and entry.old_path) or entry.path) }) end
         if entry.y ~= "D" then
+          if group == "untracked" then
+            -- The native stat gate above rejects paths that could block io.open
+            -- (and the patch check covers symlinks on platforms without a
+            -- symlink flag). Never open those targets as source text.
+            assert(not diff.has_mode(patch, "120000"), "Symbolic link: textual comparison is unsupported; raw patch follows.")
+          end
           local file, message = io.open(root .. "/" .. entry.path, "rb")
           assert(file, message)
           modified = file:read(diff.MAX_BYTES + 1) or ""

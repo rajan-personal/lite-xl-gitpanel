@@ -18,11 +18,14 @@ package.loaded["plugins.gitpanel.runner"] = { run = function(argv, cwd, input)
 end }
 local Model = require "plugins.gitpanel.model"
 local git = require "plugins.gitpanel.git"
-local status_data, commit_fail = "## main\0", false
+local status_data, commit_fail, status_fail = "## main\0", false, false
 local function find(argv, value) for _, a in ipairs(argv) do if a == value then return true end end end
 handler = function(argv, cwd, input)
   if find(argv, "rev-parse") then return 0, cwd .. "\n", "" end
-  if find(argv, "status") then return 0, status_data, "" end
+  if find(argv, "status") then
+    if status_fail then return 1, "", "status unavailable" end
+    return 0, status_data, ""
+  end
   if find(argv, "commit") and commit_fail then return 1, "", "hook rejected message" end
   if find(argv, "diff") then return 0, "+index\n", "" end
   if find(argv, "for-each-ref") then return 0, "refs/heads/main\0\0\n", "" end
@@ -40,6 +43,11 @@ m:bind("/one"); flush()
 check(m.root == "/one" and m.status.branch == "main", "repository discovery and status serialized")
 status_data = "## main\0MM partial\0"
 m:refresh(false); flush()
+status_fail = true
+m:refresh(false); flush()
+check(m.status == nil and m.refresh_error:find("status unavailable"), "failed status refresh clears stale status and fails closed")
+status_fail = false
+m:refresh(true); flush()
 commit_fail = true
 local successful = 0
 m:commit("summary\n\nbody", function() successful = successful + 1 end)
@@ -161,6 +169,16 @@ local bound = true
 for i = compare_start + 1, #calls do if calls[i].cwd ~= "/four" then bound = false end end
 check(bound and captured and captured.original == "" and captured.modified == "", "comparison captures request root across every queued source read")
 check(captured and #captured.rows == 0 and captured.group == "staged", "unborn/new empty staged comparison returns honest zero-row snapshot")
+local special_path_marker = #calls
+package.loaded.system = { get_file_info = function() return nil, "special file" end }
+local special_opened = false
+m.root = "/four"
+m:comparison({path = "fifo", x = "?", y = "?", status = "??"}, "untracked", function() special_opened = true end)
+flush()
+local special_diff = false
+for i = special_path_marker + 1, #calls do if find(calls[i].argv, "diff") then special_diff = true end end
+check(not special_opened and not special_diff and m.error:find("special file"), "special untracked paths are rejected before diff I/O")
+package.loaded.system = nil
 -- Actual one-shot destructive model protocol, without filesystem mutations.
 local diff = require "plugins.gitpanel.diff"
 local discard = require "plugins.gitpanel.discard"
