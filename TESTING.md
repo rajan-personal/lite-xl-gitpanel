@@ -6,7 +6,7 @@ From the repository root:
 python3 -B plugins/gitpanel/tests/run.py
 ```
 
-The runner executes all **18 registered suites sequentially**, exits nonzero if
+The runner executes all **19 registered suites sequentially**, exits nonzero if
 any fails, and refuses a missing LuaJIT instead of silently skipping suites.
 Python child suites use `-B` too, including the importing removal-helper tests.
 Run unoptimized Python: helpers deliberately refuse optimized invocation.
@@ -60,6 +60,12 @@ volume behavior and may separately skip when lookup is distinct. Inspect all SKI
 lines and per-suite results rather than treating an aggregate count as universal
 coverage. Tests enable granular staging only in memory; the shipped gate stays
 false.
+
+The added `markdown_native.lua` suite covers native Markdown preview command
+routing, read-only snapshots, dirty-buffer refresh/source navigation, parser/link
+safety, responsive layout and optional image API fallbacks. Image/canvas and
+rendering boundaries are mocked; no real GUI or canvas-build acceptance is claimed.
+See [Markdown preview](docs/markdown-preview.md).
 
 For contributions, retain safety refusals and add focused tests using new owned
 fixtures. Run the full suite and report dependencies, skips and platform accurately.

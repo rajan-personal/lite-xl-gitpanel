@@ -22,4 +22,7 @@ Copy this repo's **`plugins/gitpanel`** to **`USERDIR/plugins/gitpanel`**, not t
 **Warning:** Discard/Revert restore tracked files from the index immediately—no confirmation or editor undo.
 Untracked removal is immediate; recovery from `.git/gitpanel-recovery/` is manual. Keep backups.
 
+**Markdown preview:** Ctrl+Shift+M opens a read-only native preview of the current
+or selected Markdown file. [Usage, offline behavior & image limitations](docs/markdown-preview.md).
+
 [Usage & safety](plugins/gitpanel/README.md) · [Limitations](FEATURES.md) · [MIT](LICENSE)

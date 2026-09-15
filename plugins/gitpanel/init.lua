@@ -646,4 +646,5 @@ keymap.add {
   ["return"] = "git-panel:open", ["space"] = "git-panel:open",
   ["+"] = "git-panel:stage-selected", ["="] = "git-panel:stage-selected", ["-"] = "git-panel:stage-selected",
 }
+require("plugins.gitpanel.markdown").install(panel, tree)
 return panel
