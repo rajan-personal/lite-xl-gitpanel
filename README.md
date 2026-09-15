@@ -3,6 +3,15 @@
 A native **Files / Git Source Control** sidebar for Lite XL. It reuses the Files
 renderer, toolbar and editor tabs; no webview or Widgets dependency is needed.
 
+## Screenshots
+
+The Git panel keeps staged, unstaged, and untracked changes visible alongside
+the editor:
+
+![Git panel showing staged, unstaged, and untracked changes](docs/screenshots/git-panel.png)
+
+![Git panel alongside an open editor tab](docs/screenshots/git-panel-editor.png)
+
 ## Safety first
 
 **Tracked Discard and block Revert execute immediately, without confirmation.**
