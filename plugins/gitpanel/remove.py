@@ -7,12 +7,16 @@ import errno
 import hashlib
 import json
 import os
+from pathlib import Path
+import runpy
 import selectors
 import stat
 import subprocess
 import sys
 import time
 from contextlib import ExitStack
+
+git_environment = runpy.run_path(str(Path(__file__).with_name("git_env.py")))["git_environment"]
 
 LIMIT = 2 * 1024 * 1024
 RECOVERY = "gitpanel-recovery"
@@ -118,14 +122,8 @@ class Repository:
         require(os.path.isabs(root) and os.path.normpath(root) == root and root != "/", "Noncanonical root unsupported")
         parts = path.split("/")
         require(all(p and p not in (".", "..") and p.casefold() != ".git" and "\x00" not in p for p in parts), "Unsafe relative path")
-        allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_NAME",
-                   "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
-        require(not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment unsupported")
-        self.env = os.environ.copy()
-        # VS Code exports GIT_ASKPASS for authentication. Local removal never
-        # contacts a remote, so do not let that UI hook affect the helper.
-        self.env.pop("GIT_ASKPASS", None)
-        self.env.update(GIT_TERMINAL_PROMPT="0", LC_ALL="C")
+        # Match panel reads; descriptor checks below also bind removal to root.
+        self.env = git_environment(local_only=True)
         self.root, self.path, self.leaf = root, path, parts[-1]
         self.deadline = time.monotonic() + 60
         self.stack = stack

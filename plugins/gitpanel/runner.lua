@@ -3,8 +3,17 @@ local process = require "process"
 local system = require "system"
 local M = {}
 local LIMIT = 8 * 1024 * 1024
+local source = debug.getinfo(1, "S").source:sub(2)
+local git_helper = assert(source:match("^(.*)/[^/]+$")) .. "/git_env.py"
 
 function M.run(argv, cwd, input)
+  if argv[1] == "git" then
+    -- Lite XL's env option overlays inherited variables; it cannot reliably
+    -- unset the Git namespace. Use the same policy as the mutation helpers.
+    local command = { "python3", "-I", git_helper }
+    for i = 2, #argv do command[#command + 1] = argv[i] end
+    argv = command
+  end
   local ok, proc, message = pcall(process.start, argv, {
     cwd = cwd, stdin = process.REDIRECT_PIPE,
     stdout = process.REDIRECT_PIPE, stderr = process.REDIRECT_PIPE,

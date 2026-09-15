@@ -207,7 +207,9 @@ class RemoveIntegration(unittest.TestCase):
         (nested / "new").write_bytes(b"nested")
         self.assert_refused(self.call("snapshot", "nested/new"))
         for key in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_CONFIG_COUNT", "GIT_LITERAL_PATHSPECS"):
-            self.assert_refused(self.call("snapshot", env=dict(self.env, **{key: "unsafe"})))
+            result = self.call("snapshot", env=dict(self.env, **{key: "unsafe"}))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(fields(result.stdout)[2]), 64)
 
     def test_unborn_repository_without_index(self):
         root = self.base / "unborn"

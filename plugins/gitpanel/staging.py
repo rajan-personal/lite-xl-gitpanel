@@ -16,7 +16,7 @@ import runpy
 # Isolated Python deliberately excludes the script directory from sys.path.
 # Reuse the existing byte protocol without importing through user-site paths.
 _protocol = runpy.run_path(str(Path(__file__).with_name("discard.py")))
-LIMIT, pack, read_fields = (_protocol[name] for name in ("LIMIT", "pack", "read_fields"))
+LIMIT, pack, read_fields, git_environment = (_protocol[name] for name in ("LIMIT", "pack", "read_fields", "git_environment"))
 
 
 def main():
@@ -28,15 +28,9 @@ def main():
     assert all(p and p not in (".", "..") and p.lower() != ".git" for p in parts) and "\0" not in path, "Unsafe path"
     root = Path(root_arg)
     assert root.is_absolute() and str(root.resolve()) == str(root), "Noncanonical root is unsupported"
-    # Refuse linked worktrees and redirected index/object environments in this slice.
-    allowed = ("GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS",
-               "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL")
-    assert not any(k.startswith("GIT_") and k not in allowed for k in os.environ), "Redirected Git environment is unsupported"
-    env = os.environ.copy()
-    # VS Code exports GIT_ASKPASS for authentication. Local staging never
-    # contacts a remote, so do not let that UI hook affect the helper.
-    env.pop("GIT_ASKPASS", None)
-    env.update(GIT_TERMINAL_PROMPT="0", LC_ALL="C")
+    # Ignore inherited Git redirecting overrides. The explicit repository
+    # locations below bind staging to this worktree and its index.
+    env = git_environment(local_only=True)
     deadline = time.monotonic() + 60
 
     def git(*args, data=None, index=None, worktree=None, allow_missing=False):
