@@ -77,7 +77,7 @@ function ChangeList:rebuild()
         end
         table.sort(entries, function(a, b) return a.path < b.path end)
       end
-      if group == "changes" or #entries > 0 then
+      if #entries > 0 then
         local h = row_height
         self.rows[#self.rows + 1] = { key = group, group = group, y = y, h = h, entries = entries }
         y = y + h
@@ -86,10 +86,6 @@ function ChangeList:rebuild()
             local rh = h
             self.rows[#self.rows + 1] = { key = group .. "\0" .. entry.path, group = group, entry = entry, y = y, h = rh }
             y = y + rh
-          end
-          if #entries == 0 then
-            self.rows[#self.rows + 1] = { key = group .. ":empty", hint = true, group = group, y = y, h = h }
-            y = y + h
           end
         end
       end
