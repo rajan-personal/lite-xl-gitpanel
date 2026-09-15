@@ -12,6 +12,10 @@ the editor:
 
 ![Git panel alongside an open editor tab](docs/screenshots/git-panel-editor.png)
 
+Empty sections are omitted when the repository has no pending changes:
+
+![Git panel with no pending changes](docs/screenshots/git-panel-empty.png)
+
 ## Safety first
 
 **Tracked Discard and block Revert execute immediately, without confirmation.**

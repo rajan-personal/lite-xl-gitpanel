@@ -124,7 +124,7 @@ check(panel:hit(panel.banner.x+1,panel.tabs.y+panel.tabs.h+1)==nil,"off-viewport
 panel.size.y=800; toolbar.visible=true; model.error=nil; model.refresh_error="refresh failed"; panel:layout()
 check(panel.banner.h>0,"refresh error retains details path")
 model.refresh_error=nil; model.status=git.status("## main\0"); panel:layout(); panel.list:rebuild(); texts={}; panel:draw()
-check(panel.banner.h==0 and #panel.list.rows==2,"clean repository retains Changes empty rows without summary; V02 hides empty Staged")
+check(panel.banner.h==0 and #panel.list.rows==0,"clean repository hides empty change sections without summary")
 model.status=nil; model.root=nil; texts={}; panel:draw()
 check(count_text("Select a repository")==1 and not badge_box(),"no repository remains intelligible and badge hidden")
 -- Font copy and metric caches track the live theme font and SCALE, not frames.
