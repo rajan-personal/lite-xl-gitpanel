@@ -6,8 +6,8 @@ Stage, diff, commit, switch branches. Native sidebar. **Ctrl+Shift+G** to open.
 
 ## Install
 
-Requires Lite XL mod-version 3 + `treeview`, Git 2.25+ on PATH.
-Discard/revert/remove also need Python 3.9+ on PATH. Only macOS editor integration verified.
+Requires Lite XL mod-version 3 + `treeview`, Git 2.25+ and Python 3.9+ on PATH.
+All Git commands use an isolated Python environment wrapper. Only macOS editor integration verified.
 
 With Claude Code (or paste the instruction into another agent):
 

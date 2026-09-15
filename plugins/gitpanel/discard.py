@@ -6,11 +6,15 @@ import ctypes
 import errno
 import hashlib
 import os
+from pathlib import Path
+import runpy
 import stat
 import selectors
 import subprocess
 import sys
 import time
+
+git_environment = runpy.run_path(str(Path(__file__).with_name("git_env.py")))["git_environment"]
 
 LIMIT = 2 * 1024 * 1024
 
@@ -80,13 +84,7 @@ def main():
     # worktree, index or object database. The explicit -C root and the later
     # repository checks bind preflight to the bytes the replacement writes.
     assert all(p and p not in (".", "..") and p.casefold() != ".git" for p in parts), "Unsafe file path"
-    allowed = {"GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_NAME",
-               "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}
-    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") or k in allowed}
-    # VS Code exports GIT_ASKPASS for authentication. Local discard never
-    # contacts a remote, so do not let that UI hook affect the helper.
-    env.pop("GIT_ASKPASS", None)
-    env.update(GIT_TERMINAL_PROMPT="0", LC_ALL="C")
+    env = git_environment(local_only=True)
 
     deadline = time.monotonic() + 60  # Leave cleanup time before the editor's 120s limit.
 

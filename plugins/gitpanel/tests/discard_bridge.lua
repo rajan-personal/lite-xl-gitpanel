@@ -14,22 +14,39 @@ package.loaded["plugins.gitpanel.documents"].capture_affected = function() retur
 package.loaded["plugins.gitpanel.documents"].invalidate_affected = function() end
 package.loaded["plugins.gitpanel.documents"].affected_live = function() return false end
 package.loaded["plugins.gitpanel.reloadguard"] = { begin = function() return function() end end }
-package.loaded["plugins.gitpanel.runner"] = { run = function(argv, cwd, input)
-  io.write("REQUEST\n", #argv, "\n")
-  for _, value in ipairs(argv) do put(value) end
-  put(cwd); put(input or ""); io.flush()
-  local code, out, err = tonumber(io.read("*l")), get(), get()
-  if argv[4] == "snapshot" then
-    snapshots = snapshots + 1
-    if snapshots == 2 and arg[5] == "dirty-preflight" then core.docs = {{is_dirty = function() return true end}} end
-    if snapshots == 2 and arg[5] == "project-preflight" then core.project_dir = "/stale-project" end
-    if snapshots == 2 and arg[5] == "root-preflight" then
-      -- The real snapshot method checks root again after the awaited helper.
-      core.rebind_root()
+-- Exercise the production runner too: only process I/O crosses to Python.
+package.loaded.system = { get_time = os.clock }
+package.loaded.process = {
+  REDIRECT_PIPE = 1, STREAM_STDIN = 0, STREAM_STDOUT = 1, STREAM_STDERR = 2,
+  ERROR_WOULDBLOCK = -2,
+  start = function(argv, options)
+    local p = { input = "", streams = {} }
+    function p:write(input) self.input = self.input .. input; return #input end
+    function p:close_stream()
+      io.write("REQUEST\n", #argv, "\n")
+      for _, value in ipairs(argv) do put(value) end
+      put(options.cwd); put(self.input); io.flush()
+      self.code, self.streams[1], self.streams[2] = tonumber(io.read("*l")), get(), get()
+      if argv[4] == "snapshot" then
+        snapshots = snapshots + 1
+        if snapshots == 2 and arg[5] == "dirty-preflight" then core.docs = {{is_dirty = function() return true end}} end
+        if snapshots == 2 and arg[5] == "project-preflight" then core.project_dir = "/stale-project" end
+        if snapshots == 2 and arg[5] == "root-preflight" then core.rebind_root() end
+      end
     end
-  end
-  return code, out, err
-end }
+    function p:read(stream, count)
+      if not self.code then return nil, "would block", -2 end
+      local data = self.streams[stream]
+      self.streams[stream] = data:sub(count + 1)
+      return data:sub(1, count)
+    end
+    function p:running() return self.code == nil end
+    function p:returncode() return self.code end
+    function p:wait() return self.code end
+    function p:kill() error("Unexpected runner failure") end
+    return p
+  end,
+}
 local Model = require "plugins.gitpanel.model"
 local model = Model.new()
 model.context, model.root, model.status = {project = arg[1], generation = 1}, arg[1], {}
@@ -43,9 +60,13 @@ model.comparison = function(self, entry, group, callback)
     callback(result)
   end)
 end
-if arg[5] == "file-entry" or arg[5] == "file-entry-duplicate" then
+if arg[5] == "file-entry" or arg[5] == "file-entry-duplicate" or arg[5] == "bind-file-entry" then
   local entry = {path=arg[2], x=arg[6] or "M", y=arg[3], status=(arg[6] or "M") .. arg[3]}
-  model:discard_file(entry, "changes")
+  if arg[5] == "bind-file-entry" then
+    model.context = nil
+    model:bind(arg[1])
+    model:enqueue("Discard after root discovery", false, function() model:discard_file(entry, "changes") end)
+  else model:discard_file(entry, "changes") end
   if arg[5] == "file-entry-duplicate" then model:discard_file(entry, "changes") end
 else
 model:comparison({path=arg[2], x=arg[6] or "M", y=arg[3], status=(arg[6] or "M") .. arg[3]}, "changes", function(result)

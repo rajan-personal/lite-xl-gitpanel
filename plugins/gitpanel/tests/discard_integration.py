@@ -81,7 +81,7 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-discard-") as tmp:
                 args = [os.fsdecode(read()) for _ in range(int(p.stdout.readline()))]
                 cwd, data = os.fsdecode(read()), read()
                 assert cwd == str(root)
-                assert (args[0] == "git" and "--literal-pathspecs" in args) or (args[:3] == ["python3", "-I", str(HERE.parent / "discard.py")] and args[4] == str(root))
+                assert (args[:3] == ["python3", "-I", str(HERE.parent / "git_env.py")] and "--literal-pathspecs" in args) or (args[:3] == ["python3", "-I", str(HERE.parent / "discard.py")] and args[4] == str(root))
                 calls.append(args)
                 if on_request:
                     on_request(args)
@@ -225,6 +225,44 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-discard-") as tmp:
     redirected = subprocess.run([sys.executable, "-I", str(HERE.parent / "discard.py"), "snapshot", str(root), path], capture_output=True, env=env)
     check(redirected.returncode == 0 and b"Redirected Git environment" not in redirected.stderr, "discard ignores redirected Git environment")
     env.pop("GIT_DIR")
+
+    # End-to-end root discovery, status, comparison, snapshot and replacement
+    # must all use the selected repo, not just the direct Python helper.
+    foreign = Path(tmp).resolve() / "foreign"
+    foreign.mkdir()
+    subprocess.run(["git", "init", "-b", "main", str(foreign)], env=env, check=True, capture_output=True)
+    (foreign / path).write_bytes(b"foreign worktree\n")
+    subprocess.run(["git", "--literal-pathspecs", "-C", str(foreign), "add", "--", path], env=env, check=True)
+    foreign_index = (foreign / ".git/index").read_bytes()
+    foreign_files = {p.relative_to(foreign): p.read_bytes() for p in foreign.rglob("*") if p.is_file()}
+    alternate = Path(tmp).resolve() / "alternate-index"
+    original, modified, index = setup()
+    alternate.write_bytes(index)
+    alternate_env = dict(env, GIT_INDEX_FILE=str(alternate))
+    file.write_bytes(b"ALTERNATE\na\nb\nc\nd\ne\nf\nlast\n")
+    subprocess.run(["git", "--literal-pathspecs", "-C", str(root), "add", "--", path], env=alternate_env, check=True)
+    alternate_bytes = alternate.read_bytes()
+    redirects = [
+        {"GIT_INDEX_FILE": str(alternate)},
+        {"GIT_DIR": str(foreign / ".git"), "GIT_WORK_TREE": str(foreign)},
+        {"GIT_DIR": str(Path(tmp) / "missing.git")},
+        {"GIT_COMMON_DIR": str(foreign / ".git"), "GIT_OBJECT_DIRECTORY": str(foreign / ".git/objects"),
+         "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(Path(tmp) / "missing-objects")},
+        {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.worktree", "GIT_CONFIG_VALUE_0": str(foreign),
+         "GIT_CONFIG_PARAMETERS": "'core.bare=true'", "GIT_LITERAL_PATHSPECS": "unsafe"},
+    ]
+    for overrides in redirects:
+        original, modified, index = setup()
+        env.update(overrides)
+        result = discard(scenario="bind-file-entry")
+        for key in overrides:
+            env.pop(key)
+        check(not result["error"] and result["reloads"] == 1 and file.read_bytes() == original,
+              "production runner/root discovery/discard ignores " + ",".join(overrides))
+        check((root / ".git/index").read_bytes() == index and alternate.read_bytes() == alternate_bytes
+              and (foreign / ".git/index").read_bytes() == foreign_index
+              and {p.relative_to(foreign): p.read_bytes() for p in foreign.rglob("*") if p.is_file()} == foreign_files,
+              "redirected discard preserves both indexes and foreign repository")
     setup()
     env["GIT_ASKPASS"] = "/Applications/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
     r = discard(1)

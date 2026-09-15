@@ -113,6 +113,13 @@ replication. External renames/deletion can stale logged paths. See the exact
   Ownership/ordinary permissions are preserved; inherited Git redirect
   overrides are ignored; on macOS only `com.apple.provenance` is allowed among
   xattrs, with verified exact preservation.
+- Every panel Git command (including discovery, status, diff, stage and commit)
+  uses the same inherited-environment policy as the Python mutation helpers.
+  Redirecting `GIT_*` overrides and injected config are ignored; authentication,
+  author/committer identity and explicit global/no-system config settings remain.
+  Ordinary Git retains `GIT_ASKPASS`; local mutation helpers remove it. Python
+  3.9+ is required for all operations. The shell-free wrapper execs Git, preserving
+  the runner's PID, input/output streams, exit status and timeout handling.
 - Discard's isolated Python helper revalidates, uses no-follow directory
   descriptors and a bounded same-directory temporary file, then atomically
   replaces one literal leaf. It never writes the index. Output/preflight is

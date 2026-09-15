@@ -5,6 +5,9 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
+import runpy
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 LUA = shutil.which("luajit") or shutil.which("lua")
@@ -40,8 +43,25 @@ with tempfile.TemporaryDirectory(prefix="lite-xl-gitpanel-") as tmp:
         if key in {"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"} or key.startswith("GIT_CONFIG_KEY_") or key.startswith("GIT_CONFIG_VALUE_") or key == "GIT_CONFIG_COUNT":
             del env[key]
 
+    # Exercise ordinary status/stage/commit/switch with inherited overrides too.
+    env.update(GIT_DIR=str(home / "missing.git"), GIT_WORK_TREE=str(home),
+               GIT_INDEX_FILE=str(home / "wrong-index"), GIT_CONFIG_COUNT="1",
+               GIT_CONFIG_KEY_0="core.bare", GIT_CONFIG_VALUE_0="true",
+               GIT_OBJECT_DIRECTORY=str(home / "missing-objects"), GIT_LITERAL_PATHSPECS="unsafe")
+    policy = runpy.run_path(str(HERE.parent / "git_env.py"))["git_environment"]
+    with patch.dict(os.environ, dict(env, GIT_ASKPASS="/auth path/askpass", SSH_AUTH_SOCK="/agent/socket",
+                                    GIT_UNKNOWN_FUTURE_OVERRIDE="unsafe"), clear=True):
+        cleaned = policy()
+        check(not any(key in cleaned for key in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_CONFIG_COUNT", "GIT_UNKNOWN_FUTURE_OVERRIDE")),
+              "shared policy drops redirects, config injection and unknown Git settings")
+        check(cleaned["GIT_ASKPASS"] == "/auth path/askpass" and cleaned["SSH_AUTH_SOCK"] == "/agent/socket"
+              and cleaned["PATH"] == env["PATH"] and cleaned["GIT_AUTHOR_NAME"] == env["GIT_AUTHOR_NAME"]
+              and cleaned["GIT_CONFIG_GLOBAL"] == os.devnull,
+              "ordinary Git preserves authentication, executable path, identity and user config policy")
+        check("GIT_ASKPASS" not in policy(local_only=True), "local mutation helpers omit askpass")
+
     def run(*args, data=None, expected=(0,), cwd=root):
-        p = subprocess.run(["git", "--no-pager", "--literal-pathspecs", "--no-optional-locks", "-C", str(cwd), *args],
+        p = subprocess.run([sys.executable, "-I", str(HERE.parent / "git_env.py"), "--no-pager", "--literal-pathspecs", "--no-optional-locks", "-C", str(cwd), *args],
                            input=data, capture_output=True, env=env)
         assert p.returncode in expected, (args, p.returncode, p.stderr)
         return p
