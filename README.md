@@ -50,6 +50,33 @@ The latest snapshot has headless regression coverage, not fresh GUI appearance o
 mouse-click acceptance. Experimental **block/selected-line stage and unstage are
 disabled** (`staging.lua`: `ENABLED = false`). Publication does not enable them.
 
+## Memory usage
+
+The plugin does not maintain a persistent cache or an unbounded background index;
+its status model stores Git status metadata and the visible sidebar rows. Memory
+use therefore grows mainly with the number and length of changed paths and with
+any comparison currently open. Commit drafts are also held in memory until they
+are committed, cleared, or Lite XL exits.
+
+As a reference measurement, on macOS 26.2 arm64 with Lite XL 2.1.8, a clean
+temporary user directory, this repository as the project, and the app idle for
+three seconds after startup, five-run medians after a full Lua garbage collection
+were **5.29 MiB Lua heap without Git Panel** and **5.52 MiB with it** (about
+**0.23 MiB / 238 KiB additional retained Lua heap**; the rounded displayed values
+are approximate). This is a startup reference, not a memory limit or a promise
+for every project. Full-process RSS was much noisier because it includes Lite XL,
+SDL, fonts, the allocator and OS state: the same runs ranged roughly from 160–174
+MiB without the plugin and 165–175 MiB with it, so RSS should not be interpreted
+as the plugin's standalone footprint.
+
+A comparison can temporarily retain up to **2 MiB per source**, subject to
+**50,000 lines per source** and **16 KiB per line**, plus line tables and diff
+metadata. Large repositories, many status entries, open comparisons, long commit
+drafts, loaded documents/undo history, syntax highlighting, fonts, and other
+Lite XL plugins can all increase the total application footprint. Oversized
+comparison inputs are refused rather than retained without bound; see the
+[comparison and job limits](plugins/gitpanel/README.md#limits-and-failure-behavior).
+
 ## Install manually
 
 1. Obtain this repository in a separate checkout or extracted directory.
